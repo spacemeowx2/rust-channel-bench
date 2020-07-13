@@ -177,6 +177,102 @@ fn futures_unbounded(b: &mut Bencher) {
     });
 }
 
+fn crossfire_mpsc_bounded(b: &mut Bencher) {
+    use crossfire::mpsc;
+
+    let mut rt = get_rt();
+
+    b.iter(|| {
+        let (tx, rx) = mpsc::bounded_future_both::<()>(LIMIT);
+        let t1 = rt.spawn(async move {
+            for _ in 0..TIMES {
+                tx.send(()).await.unwrap();
+            }
+        });
+        let t2 = rt.spawn(async move {
+            for _ in 0..TIMES {
+                black_box(rx.recv().await.unwrap());
+            }
+        });
+        rt.block_on(async {
+            t1.await;
+            t2.await;
+        });
+    });
+}
+
+fn crossfire_mpsc_unbounded(b: &mut Bencher) {
+    use crossfire::mpsc;
+
+    let mut rt = get_rt();
+
+    b.iter(|| {
+        let (tx, rx) = mpsc::unbounded_future::<()>();
+        let t1 = rt.spawn(async move {
+            for _ in 0..TIMES {
+                tx.send(()).unwrap();
+            }
+        });
+        let t2 = rt.spawn(async move {
+            for _ in 0..TIMES {
+                black_box(rx.recv().await.unwrap());
+            }
+        });
+        rt.block_on(async {
+            t1.await;
+            t2.await;
+        });
+    });
+}
+
+fn crossfire_mpmc_bounded(b: &mut Bencher) {
+    use crossfire::mpmc;
+
+    let mut rt = get_rt();
+
+    b.iter(|| {
+        let (tx, rx) = mpmc::bounded_future_both::<()>(LIMIT);
+        let t1 = rt.spawn(async move {
+            for _ in 0..TIMES {
+                tx.send(()).await.unwrap();
+            }
+        });
+        let t2 = rt.spawn(async move {
+            for _ in 0..TIMES {
+                black_box(rx.recv().await.unwrap());
+            }
+        });
+        rt.block_on(async {
+            t1.await;
+            t2.await;
+        });
+    });
+}
+
+fn crossfire_mpmc_unbounded(b: &mut Bencher) {
+    use crossfire::mpmc;
+
+    let mut rt = get_rt();
+
+    b.iter(|| {
+        let (tx, rx) = mpmc::unbounded_future::<()>();
+        let t1 = rt.spawn(async move {
+            for _ in 0..TIMES {
+                tx.send(()).unwrap();
+            }
+        });
+        let t2 = rt.spawn(async move {
+            for _ in 0..TIMES {
+                black_box(rx.recv().await.unwrap());
+            }
+        });
+        rt.block_on(async {
+            t1.await;
+            t2.await;
+        });
+    });
+}
+
 bencher::benchmark_group!(
     tokio_channels,
     tokio_bounded,
@@ -195,4 +291,16 @@ bencher::benchmark_group!(
     futures_unbounded
 );
 
-bencher::benchmark_main!(tokio_channels, async_channels, futures_channels);
+bencher::benchmark_group!(
+    crossfire_mpsc_channels,
+    crossfire_mpsc_bounded,
+    crossfire_mpsc_unbounded
+);
+
+bencher::benchmark_group!(
+    crossfire_mpmc_channels,
+    crossfire_mpmc_bounded,
+    crossfire_mpmc_unbounded
+);
+
+bencher::benchmark_main!(tokio_channels, async_channels, futures_channels, crossfire_mpsc_channels, crossfire_mpmc_channels);
